@@ -1,0 +1,193 @@
+//@version=3
+ strategy("Strategy Turtle ATR Chanel Break Out"
+   ,default_qty_type=strategy.fixed
+   ,default_qty_value=1
+   ,pyramiding=4
+   ,overlay=true)
+ 
+ src      = close
+ len      = input(350  ,minval=1  ,title="ma length")
+ atr_len  = input(20   ,minval=1  ,title="band atr length")
+ up_n     = input(7    ,minval=1  ,title="atr upper length")
+ low_n    = input(3    ,minval=1  ,title="atr lower length")
+ SO_bool  = input(false,type=bool ,title="loss cut")
+ SO_len   = input(20   ,type=integer ,minval=1 ,title="loss cut ATR length")
+ SO_N     = input(2    ,type=float  ,minval=0.5 ,title="loss cut ATR*N")
+ MAX_N    = input(1    ,type=integer ,minval=1 ,maxval=4 ,title="maximun num of unit")
+ LO_len   = input(20   ,type=integer ,minval=1 ,title="pyramiding ATR length")
+ LO_N     = input(10   ,type=float  ,minval=0.5 ,title="pyramiding ATR*N")
+ Tm_bool  = input(false,type=bool  ,title="timed exit")
+ Tm_len   = input(80   ,type=integer ,minval=1 ,title="timed exit length")
+ fromYear = input(2005 ,type=integer ,minval=1900 ,title="test start")
+ endYear  = input(2017 ,type=integer ,minval=1900 ,title="test end")
+ 
+ isWork   = timestamp(fromYear ,1 ,1 ,00 ,00) <= time and time < timestamp(endYear+1 ,1 ,1 ,00 ,00) 
+ 
+ EMA = ema(close ,len)
+ ATR = ema(tr ,atr_len)
+ UPPER = EMA + ATR * up_n
+ LOWER = EMA - ATR * low_n
+ 
+ atr_SO_ = ema(tr ,SO_len)
+ atr_LO_ = ema(tr ,LO_len)
+ atr_SO = atr_SO_*SO_N
+ atr_LO = atr_LO_*LO_N
+ 
+ countTradingDays     = na
+ countNonTradingDays  = na
+ countTradingDays    := strategy.position_size==0 ? 0 : countTradingDays[1] + 1 
+ countNonTradingDays := strategy.position_size!=0 ? 0 : countNonTradingDays[1] + 1
+ entry1   = close
+ entry2   = close
+ entry3   = close
+ entry4   = close
+ entry1  := strategy.position_size==0 ? na : entry1[1]
+ entry2  := strategy.position_size==0 ? na : entry2[1]
+ entry3  := strategy.position_size==0 ? na : entry3[1]
+ entry4  := strategy.position_size==0 ? na : entry4[1]
+ lo2      = close
+ lo3      = close
+ lo4      = close
+ lo2     := strategy.position_size==0 ? na : lo2[1]
+ lo3     := strategy.position_size==0 ? na : lo3[1]
+ lo4     := strategy.position_size==0 ? na : lo4[1]
+ losscut  = close
+ losscut := strategy.position_size==0 or SO_bool==false ? na : losscut[1]
+ 
+ 
+ 
+ L_EntrySig = close >= UPPER and isWork
+ S_EntrySig = close <= LOWER and isWork
+ 
+ 
+ 
+ if(strategy.position_size != 0)
+     L_ExitSig = (close <= EMA or S_EntrySig) and strategy.position_size > 0
+     S_ExitSig = (close >= EMA or L_EntrySig) and strategy.position_size < 0
+ 
+     TimedSig  = countTradingDays > Tm_len and Tm_bool
+     strategy.close_all(when = L_ExitSig or S_ExitSig or TimedSig or not isWork)
+     
+     if(L_ExitSig or S_ExitSig)
+         entry1  := na
+         entry2  := na
+         entry3  := na
+         entry4  := na
+         lo2     := na
+         lo3     := na
+         lo4     := na
+         losscut := na
+     
+ if(strategy.position_size > 0)
+     lo_sig2 = lo2 < high
+     lo_sig3 = lo3 < high
+     lo_sig4 = lo4 < high
+     
+     if(lo_sig2 and MAX_N >= 2)
+         if(SO_bool)
+             strategy.entry("L-Entry2" ,strategy.long ,stop=close-atr_SO ,comment="L-Entry2")
+             strategy.exit("L-Entry1"  ,stop=close-atr_SO)
+         else
+             strategy.entry("L-Entry2" ,strategy.long ,comment="L-Entry2")
+         lo2     := na
+         losscut := SO_bool ? close - atr_SO : na
+     if(lo_sig3 and MAX_N >= 3)
+         if(SO_bool)
+             strategy.entry("L-Entry3" ,strategy.long ,stop=close-atr_SO ,comment="L-Entry3")
+             strategy.exit("L-Entry2"  ,stop=close-atr_SO)
+             strategy.exit("L-Entry1"  ,stop=close-atr_SO)
+         else
+             strategy.entry("L-Entry3" ,strategy.long ,comment="L-Entry3")
+         lo3     := na
+         losscut := SO_bool ? close - atr_SO : na
+     if(lo_sig4 and MAX_N >= 4)
+         if(SO_bool)
+             strategy.entry("L-Entry4" ,strategy.long ,stop=close-atr_SO ,comment="L-Entry4")
+             strategy.exit("L-Entry3"  ,stop=close-atr_SO)
+             strategy.exit("L-Entry2"  ,stop=close-atr_SO)
+             strategy.exit("L-Entry1"  ,stop=close-atr_SO)
+         else
+             strategy.entry("L-Entry4" ,strategy.long ,comment="L-Entry4")
+         lo4     := na
+         losscut := SO_bool ? close - atr_SO : na
+ 
+ if(strategy.position_size < 0)
+     lo_sig2 = lo2 > low
+     lo_sig3 = lo3 > low
+     lo_sig4 = lo4 > low
+     
+     if(lo_sig2 and MAX_N >= 2)
+         if(SO_bool)
+             strategy.entry("S-Entry2" ,strategy.short ,stop=close+atr_SO ,comment="S-Entry2")
+             strategy.exit("S-Entry1"  ,stop=close+atr_SO)
+         else
+             strategy.entry("S-Entry2" ,strategy.short ,comment="S-Entry2")
+         lo2     := na
+         losscut := SO_bool ? close + atr_SO : na
+     if(lo_sig3 and MAX_N >= 3)
+         if(SO_bool)
+             strategy.entry("S-Entry3" ,strategy.short ,stop=close+atr_SO ,comment="S-Entry3")
+             strategy.exit("S-Entry2"  ,stop=close+atr_SO)
+             strategy.exit("S-Entry1"  ,stop=close+atr_SO)
+         else
+             strategy.entry("S-Entry3" ,strategy.short ,comment="S-Entry3")
+         lo3     := na
+         losscut := SO_bool ? close + atr_SO : na
+     if(lo_sig4 and MAX_N >= 4)
+         if(SO_bool)
+             strategy.entry("S-Entry4" ,strategy.short ,stop=close+atr_SO ,comment="S-Entry4")
+             strategy.exit("S-Entry3"  ,stop=close+atr_SO)
+             strategy.exit("S-Entry2"  ,stop=close+atr_SO)
+             strategy.exit("S-Entry1"  ,stop=close+atr_SO)
+         else
+             strategy.entry("S-Entry4" ,strategy.short ,comment="S-Entry4")
+         lo4     := na
+         losscut := SO_bool ? close + atr_SO : na
+ 
+ 
+ 
+ if((L_EntrySig or S_EntrySig) and strategy.position_size==0)
+     countTradingDays := 0
+     entry1           := close
+     
+     if(L_EntrySig)
+         if(SO_bool)
+             strategy.entry("L-Entry1" ,strategy.long ,stop=close-atr_SO ,comment="L-Entry1")
+         else
+             strategy.entry("L-Entry1" ,strategy.long ,comment="L-Entry1")
+         lo2     := MAX_N >= 2 ? close + atr_LO     : na
+         lo3     := MAX_N >= 3 ? close + atr_LO * 2 : na
+         lo4     := MAX_N >= 4 ? close + atr_LO * 3 : na
+         losscut := SO_bool ? close - atr_SO : na
+ 
+     if(S_EntrySig)    
+         if(SO_bool)
+             strategy.entry("S-Entry1" ,strategy.short ,stop=close+atr_SO ,comment="S-Entry1")
+         else
+             strategy.entry("S-Entry1" ,strategy.short ,comment="S-Entry1")
+         lo2     := MAX_N >= 2 ? close - atr_LO     : na
+         lo3     := MAX_N >= 3 ? close - atr_LO * 2 : na
+         lo4     := MAX_N >= 4 ? close - atr_LO * 3 : na
+         losscut := SO_bool ? close + atr_SO : na
+     
+     
+ plot(strategy.position_size ,transp=0 ,title="保有ポジションの数")
+ plot(strategy.openprofit    ,transp=0 ,title="未決済の損益")
+ plot(strategy.netprofit     ,transp=0 ,title="決済済みの損益")
+ plot(strategy.closedtrades  ,transp=0 ,title="決済済み取引数")
+ plot(countTradingDays       ,transp=0 ,title="取引日数")
+ plot(countNonTradingDays    ,transp=0 ,title="ノンポジ日数")
+ plot(entry1  ,title="entry1"  ,color=blue ,transp=0 ,style=linebr)
+ plot(lo2     ,title="lo2"     ,color=red  ,transp=0 ,style=linebr)
+ plot(lo3     ,title="lo3"     ,color=red  ,transp=0 ,style=linebr)
+ plot(lo4     ,title="lo4"     ,color=red  ,transp=0 ,style=linebr)
+ plot(losscut ,title="losscut" ,color=red  ,transp=0 ,style=linebr)
+ plot(atr_SO  ,transp=0 ,title="ATR_SO")
+ plot(atr_LO  ,transp=0 ,title="ATR_LO")
+ // plot(strategy.max_drawdown  ,transp=50 ,title="最大DD")
+ // plot(strategy.equity, title="equity", color=red, linewidth=2, style=areabr)
+ 
+ p1 = plot(UPPER ,color=#303F9F ,title="UPPER" ,style=line ,linewidth=2, transp=0)
+ p2 = plot(LOWER ,color=#4CAF50 ,title="LOWER" ,style=line ,linewidth=2, transp=0)
+ plot(EMA ,color=red ,title="EMA" ,style=line ,linewidth=2 ,transp=0)
+ fill(p1 ,p2 ,color=#2196F3 ,title="fill" ,transp=60)
